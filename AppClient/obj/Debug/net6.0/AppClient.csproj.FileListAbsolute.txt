@@ -1,0 +1,15 @@
+C:\Users\moha\Desktop\Socket\AppClient\bin\Debug\net6.0\AppClient.exe
+C:\Users\moha\Desktop\Socket\AppClient\bin\Debug\net6.0\AppClient.deps.json
+C:\Users\moha\Desktop\Socket\AppClient\bin\Debug\net6.0\AppClient.runtimeconfig.json
+C:\Users\moha\Desktop\Socket\AppClient\bin\Debug\net6.0\AppClient.dll
+C:\Users\moha\Desktop\Socket\AppClient\bin\Debug\net6.0\AppClient.pdb
+C:\Users\moha\Desktop\Socket\AppClient\obj\Debug\net6.0\AppClient.csproj.AssemblyReference.cache
+C:\Users\moha\Desktop\Socket\AppClient\obj\Debug\net6.0\AppClient.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\moha\Desktop\Socket\AppClient\obj\Debug\net6.0\AppClient.AssemblyInfoInputs.cache
+C:\Users\moha\Desktop\Socket\AppClient\obj\Debug\net6.0\AppClient.AssemblyInfo.cs
+C:\Users\moha\Desktop\Socket\AppClient\obj\Debug\net6.0\AppClient.csproj.CoreCompileInputs.cache
+C:\Users\moha\Desktop\Socket\AppClient\obj\Debug\net6.0\AppClient.dll
+C:\Users\moha\Desktop\Socket\AppClient\obj\Debug\net6.0\refint\AppClient.dll
+C:\Users\moha\Desktop\Socket\AppClient\obj\Debug\net6.0\AppClient.pdb
+C:\Users\moha\Desktop\Socket\AppClient\obj\Debug\net6.0\AppClient.genruntimeconfig.cache
+C:\Users\moha\Desktop\Socket\AppClient\obj\Debug\net6.0\ref\AppClient.dll
