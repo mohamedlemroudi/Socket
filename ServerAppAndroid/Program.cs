@@ -33,7 +33,7 @@ class CardGameServer
                 NetworkStream nameStream = client.GetStream();
                 byte[] nameBuffer = new byte[1024];
                 int nameBytesRead = await nameStream.ReadAsync(nameBuffer, 0, nameBuffer.Length);
-                string playerName = Encoding.ASCII.GetString(nameBuffer, 0, nameBytesRead);
+                string playerName = Encoding.ASCII.GetString(nameBuffer, 0, nameBytesRead).Trim();
 
                 // Agregar al jugador a la lista
                 clients.Add(playerName, client);
@@ -60,17 +60,15 @@ class CardGameServer
 
         while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
         {
-            string cartaAdivinada = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-            Console.WriteLine($"Jugador {playerName} adivinó: {cartaAdivinada}");
+            string lletra = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+            Console.WriteLine($"Jugador {playerName} te la lletra: {lletra}");
 
-            // Aquí puedes implementar la lógica del juego, verificar respuestas, etc.
-
-            // Enviar la respuesta a un jugador específico (reemplaza "recipientPlayerName" con el nombre del jugador destinatario)
+            // Enviar la respuesta a otro jugador específico (reemplaza "recipientPlayerName" con el nombre del jugador destinatario)
             if (clients.ContainsKey("mohamed"))
             {
                 TcpClient recipientClient = clients["mohamed"];
                 NetworkStream recipientStream = recipientClient.GetStream();
-                byte[] responseBuffer = Encoding.ASCII.GetBytes($"El jugador {playerName} dijo: {cartaAdivinada}");
+                byte[] responseBuffer = Encoding.ASCII.GetBytes($"El jugador {playerName} dijo: {lletra}");
                 await recipientStream.WriteAsync(responseBuffer, 0, responseBuffer.Length);
             }
         }
