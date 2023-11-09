@@ -1,43 +1,81 @@
 package cat.boscdelacoma.appandroid
 
 import android.os.AsyncTask
-import android.util.Log
+import android.os.Handler
+import android.os.Looper
+import android.widget.TextView
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.Socket
 
-class CardGameClient : AsyncTask<String, Void, Void>() {
-    override fun doInBackground(vararg params: String?): Void? {
+class CardGameClient(private val textView: TextView) : AsyncTask<String, String, Void>() {
+
+    private val handler = Handler(Looper.getMainLooper())
+    private lateinit var socket: Socket
+
+    override fun doInBackground(vararg messages: String?): Void? {
         try {
-            val serverIP = "172.23.3.161" // Reemplaza con la dirección IP del servidor
+            val serverIP = "172.23.3.161"
             val serverPort = 12345
 
-            val socket = Socket(serverIP, serverPort)
+            socket = Socket(serverIP, serverPort)
 
-            val playerName = "mohamed" // Recibe el nombre del jugador como parámetro
-            val cardToGuess = "A" // Recibe la carta a adivinar como parámetro
+            val playerName = "Mohamed"
 
-            // Enviar el nombre del jugador al servidor
             val out = PrintWriter(socket.getOutputStream(), true)
             out.println(playerName)
 
-            // Enviar la carta a adivinar al servidor
-            out.println(cardToGuess)
+            // Enviar el mensaje proporcionado como parámetro
+            if (messages.isNotEmpty()) {
+                out.println(messages[0])
+            }
 
-            // Comienza a escuchar al servidor
             val `in` = BufferedReader(InputStreamReader(socket.getInputStream()))
-            while (true) {
+            var active = true
+
+            while (active) {
                 val respuesta = `in`.readLine()
                 if (respuesta != null) {
-                    // Procesa la respuesta del servidor, como mostrarla en la interfaz de usuario
-                    println(respuesta)
+                    publishProgress(respuesta)
+                } else {
+                    // El servidor cerró la conexión
+                    active = false
                 }
             }
         } catch (e: IOException) {
             e.printStackTrace()
         }
         return null
+    }
+
+    override fun onProgressUpdate(vararg values: String?) {
+        val respuesta = values[0]
+        handler.post {
+            textView.text = respuesta
+            // Envía un mensaje de vuelta a la actividad principal
+            if (respuesta != null) {
+                (textView.context as? MainActivity)?.handleServerResponse(respuesta)
+            }
+        }
+    }
+
+    override fun onPostExecute(result: Void?) {
+        // Cierra la conexión después de que la tarea se completa
+        try {
+            socket.close()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun onCancelled() {
+        // Cierra la conexión si la tarea es cancelada
+        try {
+            socket.close()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
     }
 }

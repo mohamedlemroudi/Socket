@@ -1,80 +1,117 @@
-﻿
-using System;
-using System.Collections.Generic;
+﻿using System;
+using System.Collections.Concurrent;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
-class CardGameServer
+class Program
 {
-    static Dictionary<string, TcpClient> clients = new Dictionary<string, TcpClient>();
+    static ConcurrentBag<TcpClient> clients = new ConcurrentBag<TcpClient>();
 
-    static async Task Main(string[] args)
+    static async Task Main()
     {
-        TcpListener server = null;
+        TcpListener server = new TcpListener(IPAddress.Any, 12345);
+        server.Start();
 
-        try
+        Console.WriteLine("Servidor iniciado, esperando conexiones de clientes...");
+
+        while (true)
         {
-            int port = 12345; // Puerto para la comunicación
+            TcpClient client = await server.AcceptTcpClientAsync();
+            clients.Add(client);
 
-            server = new TcpListener(IPAddress.Any, port);
-            server.Start();
-
-            Console.WriteLine($"Servidor iniciado en el puerto {port}");
-
-            while (true)
-            {
-                Console.WriteLine("Esperando un cliente...");
-                TcpClient client = await server.AcceptTcpClientAsync();
-                Console.WriteLine("Cliente conectado!");
-
-                // Recibir el nombre del cliente
-                NetworkStream nameStream = client.GetStream();
-                byte[] nameBuffer = new byte[1024];
-                int nameBytesRead = await nameStream.ReadAsync(nameBuffer, 0, nameBuffer.Length);
-                string playerName = Encoding.ASCII.GetString(nameBuffer, 0, nameBytesRead).Trim();
-
-                // Agregar al jugador a la lista
-                clients.Add(playerName, client);
-
-                // Iniciar un nuevo hilo para manejar la lógica del juego para este cliente
-                Task.Run(() => HandleClientGame(client, playerName));
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Error: {e}");
-        }
-        finally
-        {
-            server?.Stop();
+            _ = Task.Run(() => HandleClientAsync(client));
         }
     }
 
-    static async void HandleClientGame(TcpClient client, string playerName)
+    static async Task HandleClientAsync(TcpClient client)
     {
-        NetworkStream stream = client.GetStream();
-        byte[] buffer = new byte[1024];
-        int bytesRead;
-
-        while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        using (var stream = client.GetStream())
+        using (var reader = new StreamReader(stream))
+        using (var writer = new StreamWriter(stream) { AutoFlush = true })
         {
-            string lletra = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-            Console.WriteLine($"Jugador {playerName} te la lletra: {lletra}");
+            string playerName = await reader.ReadLineAsync();
+            Console.WriteLine($"Jugador conectado: {playerName}");
 
-            // Enviar la respuesta a otro jugador específico (reemplaza "recipientPlayerName" con el nombre del jugador destinatario)
-            if (clients.ContainsKey("mohamed"))
+            try
             {
-                TcpClient recipientClient = clients["mohamed"];
-                NetworkStream recipientStream = recipientClient.GetStream();
-                byte[] responseBuffer = Encoding.ASCII.GetBytes($"El jugador {playerName} dijo: {lletra}");
-                await recipientStream.WriteAsync(responseBuffer, 0, responseBuffer.Length);
+                while (true)
+                {
+                    string respuesta = await ReadMessageAsync(reader);
+                    if (respuesta == null)
+                    {
+                        Console.WriteLine($"Jugador {playerName} se desconectó.");
+                        break;
+                    }
+
+                    Console.WriteLine($"Respuesta de {playerName}: {respuesta}");
+
+                    // Envía la respuesta a todos los clientes
+                    BroadcastMessage($"{playerName}: {respuesta}\n");
+                }
+            }
+            catch (IOException)
+            {
+                Console.WriteLine($"Error al leer el mensaje del jugador {playerName}. Posiblemente desconectado.");
+                // Manejar la desconexión sin cerrar la conexión por completo
+                HandleDisconnect(client, playerName);
+            }
+            finally
+            {
+                client.Close(); // Cerrar la conexión cuando termina la tarea
             }
         }
+    }
 
-        // Eliminar al jugador de la lista cuando se desconecta
-        clients.Remove(playerName);
-        client.Close();
+    static void HandleDisconnect(TcpClient disconnectedClient, string playerName)
+    {
+        clients.TryTake(out disconnectedClient);
+        Console.WriteLine($"Jugador {playerName} se desconectó inesperadamente.");
+    }
+
+    static void BroadcastMessage(string message)
+    {
+        foreach (var otherClient in clients)
+        {
+            try
+            {
+                using (var otherWriter = new StreamWriter(otherClient.GetStream()) { AutoFlush = true })
+                {
+                    otherWriter.WriteLine(message);
+                }
+            }
+            catch (IOException)
+            {
+                // Handle exceptions related to disconnected clients
+                Console.WriteLine("Error al enviar mensaje a un cliente. Posiblemente desconectado.");
+            }
+        }
+    }
+
+    static async Task<string> ReadMessageAsync(StreamReader reader)
+    {
+        StringBuilder message = new StringBuilder();
+        char[] buffer = new char[1];
+
+        while (await reader.ReadAsync(buffer, 0, 1) > 0)
+        {
+            char currentChar = buffer[0];
+            if (currentChar == '\n') // Carácter especial que indica el final del mensaje
+            {
+                break;
+            }
+
+            message.Append(currentChar);
+        }
+
+        if (message.Length == 0)
+        {
+            // El cliente se desconectó
+            return null;
+        }
+
+        return message.ToString();
     }
 }

@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\moha\\Desktop\\SocketsRel\\Socket\\ServerAppAndroid\\ServerAppAndroid.csproj": {}
+    "C:\\Users\\moha\\Desktop\\Socket\\ServerAppAndroid\\ServerAppAndroid.csproj": {}
   },
   "projects": {
-    "C:\\Users\\moha\\Desktop\\SocketsRel\\Socket\\ServerAppAndroid\\ServerAppAndroid.csproj": {
+    "C:\\Users\\moha\\Desktop\\Socket\\ServerAppAndroid\\ServerAppAndroid.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\moha\\Desktop\\SocketsRel\\Socket\\ServerAppAndroid\\ServerAppAndroid.csproj",
+        "projectUniqueName": "C:\\Users\\moha\\Desktop\\Socket\\ServerAppAndroid\\ServerAppAndroid.csproj",
         "projectName": "ServerAppAndroid",
-        "projectPath": "C:\\Users\\moha\\Desktop\\SocketsRel\\Socket\\ServerAppAndroid\\ServerAppAndroid.csproj",
+        "projectPath": "C:\\Users\\moha\\Desktop\\Socket\\ServerAppAndroid\\ServerAppAndroid.csproj",
         "packagesPath": "C:\\Users\\moha\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\moha\\Desktop\\SocketsRel\\Socket\\ServerAppAndroid\\obj\\",
+        "outputPath": "C:\\Users\\moha\\Desktop\\Socket\\ServerAppAndroid\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
