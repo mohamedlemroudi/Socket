@@ -11,7 +11,8 @@ import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.Socket
 
-class CardGameClient(private val textView: TextView, private val playerName: String) : AsyncTask<String, String, Void>() {
+class CardGameClient(private val textView: TextView, private val playerName: String) :
+    AsyncTask<String, String, Void>() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var socket: Socket
     private lateinit var writer: PrintWriter

@@ -37,15 +37,11 @@ class MainActivity : AppCompatActivity() {
         btnSendMessage = findViewById(R.id.btnSendMessage)
 
         val playerName = "UsuarioAndroid1"
-        cardGameClient = CardGameClient(textView, playerName)
-
-        // Inicia la conexión y envía el nombre del jugador al servidor
-        cardGameClient.execute()
-
-        // Inicia el hilo para enviar mensajes continuamente
-        cardGameClient.startSendingMessages()
 
         btnSendMessage.setOnClickListener {
+            cardGameClient = CardGameClient(textView, playerName)
+            // Inicia la conexión y envía el nombre del jugador al servidor
+            cardGameClient.execute()
             val message = editTextMessage.text.toString()
             cardGameClient.sendMessage(message)
             editTextMessage.text.clear()
@@ -53,7 +49,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun handleServerResponse(response: String) {
-        textView.text = response
+        runOnUiThread {
+            textView.text = response
+        }
     }
 }
 
