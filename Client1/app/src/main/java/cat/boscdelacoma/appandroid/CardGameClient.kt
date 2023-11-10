@@ -3,6 +3,7 @@ package cat.boscdelacoma.appandroid
 import android.os.AsyncTask
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.widget.TextView
 import java.io.BufferedReader
 import java.io.IOException
@@ -10,67 +11,102 @@ import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.Socket
 
-class CardGameClient(private val textView: TextView) : AsyncTask<String, String, Void>() {
-
+class CardGameClient(private val textView: TextView, private val playerName: String) : AsyncTask<String, String, Void>() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var socket: Socket
+    private lateinit var writer: PrintWriter
+    private lateinit var reader: BufferedReader
 
-    override fun doInBackground(vararg messages: String?): Void? {
+    private var isRunning = true
+
+    init {
+        // Esta inicialización se realiza cuando se crea una instancia del cliente
+        connectAndSendPlayerName()
+    }
+
+    fun sendPlayerName() {
+        // Envía el nombre del jugador al servidor
+        writer.println(playerName)
+    }
+
+    fun sendMessage(message: String) {
+        // Asegúrate de que el socket y el escritor estén inicializados
+        if (this::socket.isInitialized && this::writer.isInitialized) {
+            // Envía el mensaje al servidor
+            writer.println(message)
+        } else {
+            Log.e("CardGameClient", "Socket o escritor no inicializados.")
+        }
+    }
+
+    fun closeConnection() {
+        isRunning = false
+        socket.close()
+    }
+
+    fun startSendingMessages() {
+        Thread {
+            while (isRunning) {
+                // Aquí puedes implementar la lógica para enviar mensajes continuamente
+                val message = "Mensaje desde el cliente 1"
+                sendMessage(message)
+                Thread.sleep(1000) // espera 1 segundo entre mensajes (ajusta según sea necesario)
+            }
+        }.start()
+    }
+
+    fun connectAndSendPlayerName() {
         try {
-            val serverIP = "192.168.18.131"  // Cambia esto con la dirección IP del servidor
+            val serverIP = "172.23.3.161"
             val serverPort = 12345
 
             socket = Socket(serverIP, serverPort)
 
-            val playerName = "UsuarioAndroid_1"
-            PrintWriter(socket.getOutputStream(), true).apply { println(playerName) }
+            // Inicializa el escritor después de establecer la conexión con el servidor
+            writer = PrintWriter(socket.getOutputStream(), true)
 
-            messages.takeIf { it.isNotEmpty() }?.firstOrNull()?.let {
-                PrintWriter(socket.getOutputStream(), true).apply { println(it) }
-            }
+            // Inicializa el lector
+            reader = BufferedReader(InputStreamReader(socket.getInputStream()))
 
-            BufferedReader(InputStreamReader(socket.getInputStream())).use { `in` ->
-                var active = true
+            // Envía el nombre del jugador al servidor
+            sendPlayerName()
 
-                while (active) {
-                    `in`.readLine()?.let { respuesta ->
-                        publishProgress(respuesta)
-                    } ?: run {
-                        // El servidor cerró la conexión
-                        active = false
-                    }
+            // Inicia el hilo para enviar mensajes continuamente
+            startSendingMessages()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun doInBackground(vararg messages: String?): Void? {
+        try {
+            while (isRunning) {
+                val buffer = CharArray(4096)
+                val bytesRead = reader.read(buffer)
+                if (bytesRead == -1) {
+                    // El cliente se desconectó, cierra la conexión y sal del bucle
+                    break
                 }
+
+                // Construir el mensaje acumulando los datos leídos
+                val message = String(buffer, 0, bytesRead)
+                publishProgress(message)
             }
         } catch (e: IOException) {
             e.printStackTrace()
-        } finally {
-            socket.close()
+            // Manejar la desconexión aquí, por ejemplo, cerrando la conexión del lado del cliente
+            closeConnection()
         }
         return null
     }
 
     override fun onProgressUpdate(vararg values: String?) {
         values[0]?.let { respuesta ->
+            // Actualiza la interfaz de usuario desde el hilo principal
             handler.post {
                 textView.text = respuesta
                 (textView.context as? MainActivity)?.handleServerResponse(respuesta)
             }
-        }
-    }
-
-    override fun onPostExecute(result: Void?) {
-        try {
-            socket.close()
-        } catch (e: IOException) {
-            e.printStackTrace()
-        }
-    }
-
-    override fun onCancelled() {
-        try {
-            socket.close()
-        } catch (e: IOException) {
-            e.printStackTrace()
         }
     }
 }

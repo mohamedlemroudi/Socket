@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -36,19 +37,37 @@ class Program
 
             try
             {
-                while (true)
+                char[] buffer = new char[4096];
+                StringBuilder messageBuilder = new StringBuilder();
+
+                while (client.Connected)
                 {
-                    string message = await reader.ReadLineAsync();
-                    if (message == null)
+                    int bytesRead = await reader.ReadAsync(buffer, 0, buffer.Length);
+
+                    if (bytesRead > 0)
                     {
-                        Console.WriteLine($"Jugador {playerName} se desconectó.");
+                        // Construir el mensaje acumulando los datos leídos
+                        messageBuilder.Append(buffer, 0, bytesRead);
+
+                        // Verificar si el mensaje está completo
+                        string message = messageBuilder.ToString();
+                        if (message.Contains("\n"))
+                        {
+                            Console.WriteLine($"Mensaje de {playerName}: {message}");
+
+                            // Envía el mensaje a todos los clientes, incluido el remitente
+                            BroadcastMessage($"{playerName}: {message}\n", client);
+
+                            // Limpiar el StringBuilder para el próximo mensaje
+                            messageBuilder.Clear();
+                        }
+                    }
+                    else
+                    {
+                        // El cliente se desconectó
+                        HandleDisconnect(client, playerName);
                         break;
                     }
-
-                    Console.WriteLine($"Mensaje de {playerName}: {message}");
-
-                    // Envía el mensaje a todos los clientes, incluido el remitente
-                    BroadcastMessage($"{playerName}: {message}\n", client);
                 }
             }
             catch (IOException)
@@ -59,7 +78,6 @@ class Program
         }
     }
 
-
     static void HandleDisconnect(TcpClient disconnectedClient, string playerName)
     {
         clients.Remove(disconnectedClient);
@@ -68,22 +86,24 @@ class Program
 
     static void BroadcastMessage(string message, TcpClient sender)
     {
+        Console.WriteLine($"Enviando mensaje: {message}");
+
         foreach (var client in clients)
         {
-            if (client != sender)
+            try
             {
-                try
+                using (var writer = new StreamWriter(client.GetStream()) { AutoFlush = true })
                 {
-                    using (var writer = new StreamWriter(client.GetStream()) { AutoFlush = true })
-                    {
-                        writer.WriteLine(message);
-                    }
+                    writer.WriteLine(message);
+                    writer.Flush(); // Agregar esta línea
+                    Console.WriteLine($"Mensaje enviado a {client}");
                 }
-                catch (IOException)
-                {
-                    Console.WriteLine("Error al enviar mensaje a un cliente. Posiblemente desconectado.");
-                }
+            }
+            catch (IOException)
+            {
+                Console.WriteLine($"Error al enviar mensaje a un cliente {client}. Posiblemente desconectado.");
             }
         }
     }
+
 }

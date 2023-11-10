@@ -4,6 +4,7 @@ import android.os.AsyncTask
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.StrictMode
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -18,29 +19,42 @@ class MainActivity : AppCompatActivity() {
     private lateinit var textView: TextView
     private lateinit var editTextMessage: EditText
     private lateinit var btnSendMessage: Button
+    private lateinit var cardGameClient: CardGameClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Permitir operaciones de red en el hilo principal (solo para depuración)
+        StrictMode.setThreadPolicy(
+            StrictMode.ThreadPolicy.Builder()
+                .permitNetwork()
+                .build()
+        )
+
         textView = findViewById(R.id.textView)
         editTextMessage = findViewById(R.id.editTextMessage)
         btnSendMessage = findViewById(R.id.btnSendMessage)
 
+        val playerName = "UsuarioAndroid1"
+        cardGameClient = CardGameClient(textView, playerName)
+
+        // Inicia la conexión y envía el nombre del jugador al servidor
+        cardGameClient.execute()
+
+        // Inicia el hilo para enviar mensajes continuamente
+        cardGameClient.startSendingMessages()
 
         btnSendMessage.setOnClickListener {
             val message = editTextMessage.text.toString()
-
-            // Crea una nueva instancia de CardGameClient y ejecútala
-            val newCardGameClient = CardGameClient(textView)
-            newCardGameClient.execute(message)
-
+            cardGameClient.sendMessage(message)
             editTextMessage.text.clear()
         }
-
     }
 
     fun handleServerResponse(response: String) {
         textView.text = response
     }
 }
+
+

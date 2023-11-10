@@ -15,6 +15,9 @@ class CardGameClient(private val textView: TextView, private val playerName: Str
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var socket: Socket
     private lateinit var writer: PrintWriter
+    private lateinit var reader: BufferedReader
+
+    private var isRunning = true
 
     init {
         // Esta inicialización se realiza cuando se crea una instancia del cliente
@@ -26,13 +29,32 @@ class CardGameClient(private val textView: TextView, private val playerName: Str
         writer.println(playerName)
     }
 
+    fun closeConnection() {
+        isRunning = false
+        socket.close()
+    }
+
     fun sendMessage(message: String) {
-        // Asegúrate de que el socket y el escritor estén inicializados
-        if (this::socket.isInitialized && this::writer.isInitialized) {
-            // Envía el mensaje al servidor
-            writer.println(message)
-        } else {
-            Log.e("CardGameClient", "Socket o escritor no inicializados.")
+        Log.d("CardGameClient", "Enviando mensaje: $message")
+        //SendMessageTask().execute("$message\n")
+        SendMessageTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, "$message\n")
+    }
+
+    private inner class SendMessageTask : AsyncTask<String, Void, Void>() {
+        override fun doInBackground(vararg messages: String): Void? {
+            try {
+                if (this@CardGameClient::socket.isInitialized && this@CardGameClient::writer.isInitialized) {
+                    // Envía el mensaje al servidor
+                    writer.println(messages[0])
+                } else {
+                    Log.e("CardGameClient", "Socket o escritor no inicializados.")
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+                // Manejar la desconexión aquí, por ejemplo, cerrando la conexión del lado del cliente
+                closeConnection()
+            }
+            return null
         }
     }
 
@@ -46,6 +68,9 @@ class CardGameClient(private val textView: TextView, private val playerName: Str
             // Inicializa el escritor después de establecer la conexión con el servidor
             writer = PrintWriter(socket.getOutputStream(), true)
 
+            // Inicializa el lector
+            reader = BufferedReader(InputStreamReader(socket.getInputStream()))
+
             // Envía el nombre del jugador al servidor
             sendPlayerName()
         } catch (e: IOException) {
@@ -55,14 +80,22 @@ class CardGameClient(private val textView: TextView, private val playerName: Str
 
     override fun doInBackground(vararg messages: String?): Void? {
         try {
-            // Este método ahora solo se encarga de mantener la conexión activa
-            // y no realiza la conexión inicial o envío del nombre del jugador
-            while (true) {
-                // Puedes implementar aquí la lógica para leer mensajes del servidor si es necesario
-                // por ejemplo, si el servidor envía algo de vuelta.
+            while (isRunning) {
+                val buffer = CharArray(4096)
+                val bytesRead = reader.read(buffer)
+                if (bytesRead == -1) {
+                    // El cliente se desconectó, cierra la conexión y sal del bucle
+                    break
+                }
+
+                // Construir el mensaje acumulando los datos leídos
+                val message = String(buffer, 0, bytesRead)
+                publishProgress(message)
             }
         } catch (e: IOException) {
             e.printStackTrace()
+            // Manejar la desconexión aquí, por ejemplo, cerrando la conexión del lado del cliente
+            closeConnection()
         }
         return null
     }
