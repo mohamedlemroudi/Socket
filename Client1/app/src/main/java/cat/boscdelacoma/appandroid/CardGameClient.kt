@@ -17,52 +17,48 @@ class CardGameClient(private val textView: TextView) : AsyncTask<String, String,
 
     override fun doInBackground(vararg messages: String?): Void? {
         try {
-            val serverIP = "172.23.3.161"
+            val serverIP = "192.168.18.131"  // Cambia esto con la dirección IP del servidor
             val serverPort = 12345
 
             socket = Socket(serverIP, serverPort)
 
-            val playerName = "Mohamed"
+            val playerName = "UsuarioAndroid_1"
+            PrintWriter(socket.getOutputStream(), true).apply { println(playerName) }
 
-            val out = PrintWriter(socket.getOutputStream(), true)
-            out.println(playerName)
-
-            // Enviar el mensaje proporcionado como parámetro
-            if (messages.isNotEmpty()) {
-                out.println(messages[0])
+            messages.takeIf { it.isNotEmpty() }?.firstOrNull()?.let {
+                PrintWriter(socket.getOutputStream(), true).apply { println(it) }
             }
 
-            val `in` = BufferedReader(InputStreamReader(socket.getInputStream()))
-            var active = true
+            BufferedReader(InputStreamReader(socket.getInputStream())).use { `in` ->
+                var active = true
 
-            while (active) {
-                val respuesta = `in`.readLine()
-                if (respuesta != null) {
-                    publishProgress(respuesta)
-                } else {
-                    // El servidor cerró la conexión
-                    active = false
+                while (active) {
+                    `in`.readLine()?.let { respuesta ->
+                        publishProgress(respuesta)
+                    } ?: run {
+                        // El servidor cerró la conexión
+                        active = false
+                    }
                 }
             }
         } catch (e: IOException) {
             e.printStackTrace()
+        } finally {
+            socket.close()
         }
         return null
     }
 
     override fun onProgressUpdate(vararg values: String?) {
-        val respuesta = values[0]
-        handler.post {
-            textView.text = respuesta
-            // Envía un mensaje de vuelta a la actividad principal
-            if (respuesta != null) {
+        values[0]?.let { respuesta ->
+            handler.post {
+                textView.text = respuesta
                 (textView.context as? MainActivity)?.handleServerResponse(respuesta)
             }
         }
     }
 
     override fun onPostExecute(result: Void?) {
-        // Cierra la conexión después de que la tarea se completa
         try {
             socket.close()
         } catch (e: IOException) {
@@ -71,7 +67,6 @@ class CardGameClient(private val textView: TextView) : AsyncTask<String, String,
     }
 
     override fun onCancelled() {
-        // Cierra la conexión si la tarea es cancelada
         try {
             socket.close()
         } catch (e: IOException) {

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 class Program
 {
-    static ConcurrentBag<TcpClient> clients = new ConcurrentBag<TcpClient>();
+    static List<TcpClient> clients = new List<TcpClient>();
 
     static async Task Main()
     {
@@ -30,7 +30,6 @@ class Program
     {
         using (var stream = client.GetStream())
         using (var reader = new StreamReader(stream))
-        using (var writer = new StreamWriter(stream) { AutoFlush = true })
         {
             string playerName = await reader.ReadLineAsync();
             Console.WriteLine($"Jugador conectado: {playerName}");
@@ -39,79 +38,52 @@ class Program
             {
                 while (true)
                 {
-                    string respuesta = await ReadMessageAsync(reader);
-                    if (respuesta == null)
+                    string message = await reader.ReadLineAsync();
+                    if (message == null)
                     {
                         Console.WriteLine($"Jugador {playerName} se desconectó.");
                         break;
                     }
 
-                    Console.WriteLine($"Respuesta de {playerName}: {respuesta}");
+                    Console.WriteLine($"Mensaje de {playerName}: {message}");
 
-                    // Envía la respuesta a todos los clientes
-                    BroadcastMessage($"{playerName}: {respuesta}\n");
+                    // Envía el mensaje a todos los clientes, incluido el remitente
+                    BroadcastMessage($"{playerName}: {message}\n", client);
                 }
             }
             catch (IOException)
             {
                 Console.WriteLine($"Error al leer el mensaje del jugador {playerName}. Posiblemente desconectado.");
-                // Manejar la desconexión sin cerrar la conexión por completo
                 HandleDisconnect(client, playerName);
-            }
-            finally
-            {
-                client.Close(); // Cerrar la conexión cuando termina la tarea
             }
         }
     }
+
 
     static void HandleDisconnect(TcpClient disconnectedClient, string playerName)
     {
-        clients.TryTake(out disconnectedClient);
+        clients.Remove(disconnectedClient);
         Console.WriteLine($"Jugador {playerName} se desconectó inesperadamente.");
     }
 
-    static void BroadcastMessage(string message)
+    static void BroadcastMessage(string message, TcpClient sender)
     {
-        foreach (var otherClient in clients)
+        foreach (var client in clients)
         {
-            try
+            if (client != sender)
             {
-                using (var otherWriter = new StreamWriter(otherClient.GetStream()) { AutoFlush = true })
+                try
                 {
-                    otherWriter.WriteLine(message);
+                    using (var writer = new StreamWriter(client.GetStream()) { AutoFlush = true })
+                    {
+                        writer.WriteLine(message);
+                    }
+                }
+                catch (IOException)
+                {
+                    Console.WriteLine("Error al enviar mensaje a un cliente. Posiblemente desconectado.");
                 }
             }
-            catch (IOException)
-            {
-                // Handle exceptions related to disconnected clients
-                Console.WriteLine("Error al enviar mensaje a un cliente. Posiblemente desconectado.");
-            }
         }
-    }
-
-    static async Task<string> ReadMessageAsync(StreamReader reader)
-    {
-        StringBuilder message = new StringBuilder();
-        char[] buffer = new char[1];
-
-        while (await reader.ReadAsync(buffer, 0, 1) > 0)
-        {
-            char currentChar = buffer[0];
-            if (currentChar == '\n') // Carácter especial que indica el final del mensaje
-            {
-                break;
-            }
-
-            message.Append(currentChar);
-        }
-
-        if (message.Length == 0)
-        {
-            // El cliente se desconectó
-            return null;
-        }
-
-        return message.ToString();
     }
 }

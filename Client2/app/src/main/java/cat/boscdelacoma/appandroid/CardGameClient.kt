@@ -3,6 +3,7 @@ package cat.boscdelacoma.appandroid
 import android.os.AsyncTask
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.widget.TextView
 import java.io.BufferedReader
 import java.io.IOException
@@ -10,39 +11,55 @@ import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.Socket
 
-class CardGameClient(private val textView: TextView) : AsyncTask<String, String, Void>() {
-
+class CardGameClient(private val textView: TextView, private val playerName: String) : AsyncTask<String, String, Void>() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var socket: Socket
+    private lateinit var writer: PrintWriter
 
-    override fun doInBackground(vararg messages: String?): Void? {
+    init {
+        // Esta inicialización se realiza cuando se crea una instancia del cliente
+        connectAndSendPlayerName()
+    }
+
+    fun sendPlayerName() {
+        // Envía el nombre del jugador al servidor
+        writer.println(playerName)
+    }
+
+    fun sendMessage(message: String) {
+        // Asegúrate de que el socket y el escritor estén inicializados
+        if (this::socket.isInitialized && this::writer.isInitialized) {
+            // Envía el mensaje al servidor
+            writer.println(message)
+        } else {
+            Log.e("CardGameClient", "Socket o escritor no inicializados.")
+        }
+    }
+
+    fun connectAndSendPlayerName() {
         try {
             val serverIP = "172.23.3.161"
             val serverPort = 12345
 
             socket = Socket(serverIP, serverPort)
 
-            val playerName = "Jaska"
+            // Inicializa el escritor después de establecer la conexión con el servidor
+            writer = PrintWriter(socket.getOutputStream(), true)
 
-            val out = PrintWriter(socket.getOutputStream(), true)
-            out.println(playerName)
+            // Envía el nombre del jugador al servidor
+            sendPlayerName()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+    }
 
-            // Enviar el mensaje proporcionado como parámetro
-            if (messages.isNotEmpty()) {
-                out.println(messages[0])
-            }
-
-            val `in` = BufferedReader(InputStreamReader(socket.getInputStream()))
-            var active = true
-
-            while (active) {
-                val respuesta = `in`.readLine()
-                if (respuesta != null) {
-                    publishProgress(respuesta)
-                } else {
-                    // El servidor cerró la conexión
-                    active = false
-                }
+    override fun doInBackground(vararg messages: String?): Void? {
+        try {
+            // Este método ahora solo se encarga de mantener la conexión activa
+            // y no realiza la conexión inicial o envío del nombre del jugador
+            while (true) {
+                // Puedes implementar aquí la lógica para leer mensajes del servidor si es necesario
+                // por ejemplo, si el servidor envía algo de vuelta.
             }
         } catch (e: IOException) {
             e.printStackTrace()
@@ -51,31 +68,12 @@ class CardGameClient(private val textView: TextView) : AsyncTask<String, String,
     }
 
     override fun onProgressUpdate(vararg values: String?) {
-        val respuesta = values[0]
-        handler.post {
-            textView.text = respuesta
-            // Envía un mensaje de vuelta a la actividad principal
-            if (respuesta != null) {
+        values[0]?.let { respuesta ->
+            // Actualiza la interfaz de usuario desde el hilo principal
+            handler.post {
+                textView.text = respuesta
                 (textView.context as? MainActivity)?.handleServerResponse(respuesta)
             }
-        }
-    }
-
-    override fun onPostExecute(result: Void?) {
-        // Cierra la conexión después de que la tarea se completa
-        try {
-            socket.close()
-        } catch (e: IOException) {
-            e.printStackTrace()
-        }
-    }
-
-    override fun onCancelled() {
-        // Cierra la conexión si la tarea es cancelada
-        try {
-            socket.close()
-        } catch (e: IOException) {
-            e.printStackTrace()
         }
     }
 }

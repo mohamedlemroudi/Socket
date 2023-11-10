@@ -2,16 +2,22 @@ package cat.boscdelacoma.appandroid
 
 import android.os.AsyncTask
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import java.io.BufferedReader
+import java.io.IOException
+import java.io.InputStreamReader
+import java.io.PrintWriter
+import java.net.Socket
 
 class MainActivity : AppCompatActivity() {
     private lateinit var textView: TextView
     private lateinit var editTextMessage: EditText
     private lateinit var btnSendMessage: Button
-    private lateinit var cardGameClient: CardGameClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,27 +27,20 @@ class MainActivity : AppCompatActivity() {
         editTextMessage = findViewById(R.id.editTextMessage)
         btnSendMessage = findViewById(R.id.btnSendMessage)
 
+
         btnSendMessage.setOnClickListener {
             val message = editTextMessage.text.toString()
 
-            // Verifica si la tarea ya está en curso
-            if (cardGameClient == null || cardGameClient?.status != AsyncTask.Status.RUNNING) {
-                // Crea una nueva instancia solo si no está en ejecución
-                cardGameClient = CardGameClient(textView)
-                cardGameClient?.execute(message)
-            } else {
-                // La tarea ya está en curso, puedes manejarlo de alguna manera (por ejemplo, mostrar un mensaje)
-            }
+            // Crea una nueva instancia de CardGameClient y ejecútala
+            val newCardGameClient = CardGameClient(textView)
+            newCardGameClient.execute(message)
 
             editTextMessage.text.clear()
         }
+
     }
 
     fun handleServerResponse(response: String) {
-        // Actualiza todos los textViews necesarios
-        // Puedes agregar lógica aquí para determinar a cuáles textViews actualizar
-        // según tus necesidades
         textView.text = response
     }
-
 }
