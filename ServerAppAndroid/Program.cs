@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 class Program
 {
     static List<TcpClient> clients = new List<TcpClient>();
+    static SemaphoreSlim semaphore = new SemaphoreSlim(1, 1); // Limita a un solo hilo a la vez
 
     static async Task Main()
     {
@@ -56,7 +57,7 @@ class Program
                             Console.WriteLine($"Mensaje de {playerName}: {message}");
 
                             // Envía el mensaje a todos los clientes, incluido el remitente
-                            BroadcastMessage($"{playerName}: {message}\n", client);
+                            await BroadcastMessageAsync($"{playerName}: {message}\n");
 
                             // Limpiar el StringBuilder para el próximo mensaje
                             messageBuilder.Clear();
@@ -66,7 +67,7 @@ class Program
                     {
                         // El cliente se desconectó
                         HandleDisconnect(client, playerName);
-                        break;
+                        return;  // Salir del método para evitar continuar procesando después de la desconexión
                     }
                 }
             }
@@ -84,26 +85,33 @@ class Program
         Console.WriteLine($"Jugador {playerName} se desconectó inesperadamente.");
     }
 
-    static void BroadcastMessage(string message, TcpClient sender)
+    static async Task BroadcastMessageAsync(string message)
     {
-        Console.WriteLine($"Enviando mensaje: {message}");
-
-        foreach (var client in clients)
+        await semaphore.WaitAsync(); // Espera a adquirir el semáforo
+        try
         {
-            try
+            Console.WriteLine($"Enviando mensaje: {message}");
+
+            foreach (var client in clients)
             {
-                using (var writer = new StreamWriter(client.GetStream()) { AutoFlush = true })
+                try
                 {
-                    writer.WriteLine(message);
-                    writer.Flush(); // Agregar esta línea
-                    Console.WriteLine($"Mensaje enviado a {client}");
+                    using (var writer = new StreamWriter(client.GetStream()) { AutoFlush = true })
+                    {
+                        await writer.WriteLineAsync(message);
+                        Console.WriteLine($"Mensaje enviado a {client}");
+                    }
+                }
+                catch (IOException)
+                {
+                    Console.WriteLine($"Error al enviar mensaje a un cliente {client}. Posiblemente desconectado.");
                 }
             }
-            catch (IOException)
-            {
-                Console.WriteLine($"Error al enviar mensaje a un cliente {client}. Posiblemente desconectado.");
-            }
+        }
+        finally
+        {
+            semaphore.Release(); // Libera el semáforo, permitiendo que otro hilo lo adquiera
         }
     }
-
 }
+
